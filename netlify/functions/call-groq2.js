@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- CONFIGURATION ---
     const NETLIFY_FUNCTION_PATH = '/.netlify/functions/call-groq2';
 
-    // --- TRANSLATION OBJECT ---
+    // --- OBJET DE TRADUCTION ---
     const translations = {
         en: {
             pageTitle: "Equilibre - Your Personalized Meal Planner v3",
@@ -319,14 +319,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     let currentLang = 'fr';
 
-    // --- DATA LAYER (Initialisés vides) ---
+    // --- DATA LAYER ---
     let CIQUAL_DATA = []; 
     let fuse;
     let processedMenuData = null;
     let weightChart = null;
     let maintenanceCalories = 0;
     
-    // ... (Le reste de votre code reste identique jusqu'à la fonction initializeApp)
     const UNIT_CONVERSIONS = {
         "huile d'olive": { "cuillère à soupe": 14, "cuillère à café": 4.5, "ml": 0.92 }, "olive oil": { "tablespoon": 14, "tsp": 4.5, "ml": 0.92 }, "olivenöl": { "el": 14, "tl": 4.5, "ml": 0.92 },
         "farine": { "tasse": 120, "cuillère à soupe": 7.5 }, "flour": { "cup": 120, "tablespoon": 7.5 }, "mehl": { "tasse": 120, "el": 7.5 },
@@ -348,6 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         "pain": { "tranche": 30 }, "bread": { "slice": 30 }, "brot": { "scheibe": 30 }
     };
 
+    // --- SÉLECTION DES ÉLÉMENTS DU DOM ---
     const tdeeForm = document.getElementById('tdee-form');
     const tdeeResultDiv = document.getElementById('tdee-result');
     const tdeeValueSpan = document.getElementById('tdee-value');
@@ -371,12 +371,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const printContentDiv = document.getElementById('print-content');
     const langSwitcher = document.getElementById('lang-switcher');
 
+    // --- FONCTIONS DE TRADUCTION ---
     function setLanguage(lang) {
         if (!translations[lang]) return;
         currentLang = lang;
         localStorage.setItem('userLanguage', lang);
         document.documentElement.lang = lang;
-        langSwitcher.value = lang;
+        if (langSwitcher.value !== lang) {
+            langSwitcher.value = lang;
+        }
 
         const translationData = translations[lang];
 
@@ -401,17 +404,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        // Redraw chart with translated labels if it exists
-        if (weightChart) {
-            updateWeightProjectionChart();
-        }
-
-        // Rerender menu if it exists
-        if(processedMenuData){
-            renderMenu(processedMenuData.weeklyPlan);
-        }
+        // Mettre à jour dynamiquement les éléments qui ne sont pas dans le HTML initial
+        if (weightChart) updateWeightProjectionChart();
+        if (processedMenuData) renderMenu(processedMenuData.weeklyPlan);
     }
     
+    // --- FONCTIONS PRINCIPALES DE L'APP ---
     function parseCiqualValue(value) {
         if (typeof value !== 'string') {
             return !isNaN(value) ? Number(value) : 0;
@@ -421,12 +419,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return isNaN(number) ? 0 : number;
     }
 
-    async function initializeApp() {
+    async function loadCiqualData() {
         try {
             const response = await fetch('ciqual-complet.json');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const rawData = await response.json();
 
             CIQUAL_DATA = rawData.compo
@@ -438,44 +434,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     fats: parseCiqualValue(item['Lipides (g/100 g)'])
                 }))
                 .filter(item => item.kcal > 0);
-
-            console.log("Application initialisée avec", CIQUAL_DATA.length, "aliments (après filtrage).");
-
-            const fuseOptions = {
-                includeScore: true,
-                keys: ['name_fr'],
-                threshold: 0.4
-            };
-            fuse = new Fuse(CIQUAL_DATA, fuseOptions);
-
-            // Set language based on localStorage or browser preference
-            const savedLang = localStorage.getItem('userLanguage');
-            const browserLang = navigator.language.split('-')[0];
-            setLanguage(savedLang || (translations[browserLang] ? browserLang : 'fr'));
-
-
+            
+            console.log("Données CIQUAL chargées:", CIQUAL_DATA.length, "aliments.");
+            
+            fuse = new Fuse(CIQUAL_DATA, { includeScore: true, keys: ['name_fr'], threshold: 0.4 });
         } catch (error) {
             console.error("Erreur critique lors du chargement des données:", error);
             document.body.innerHTML = "<h1>Erreur</h1><p>Impossible de charger la base de données nutritionnelle (ciqual-complet.json). Vérifiez que le fichier est présent et que le serveur est bien lancé.</p>";
+            throw error; // Empêcher le reste du script de s'exécuter
         }
     }
 
-    await initializeApp();
-
-    langSwitcher.addEventListener('change', (e) => setLanguage(e.target.value));
-
-    tdeeForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        calculateNeeds();
-    });
-
-    suggestIngredientsBtn.addEventListener('click', () => {
-        ingredientsInput.value = translations[currentLang].suggestedIngredientsList;
-    });
-
-    calorieRestrictionSelect.addEventListener('change', updateCalorieTargetAndChart);
-    generateMenuBtn.addEventListener('click', handleMenuGeneration);
-    printBtn.addEventListener('click', handlePrint);
+    // ... Toutes les autres fonctions de votre application (calculateNeeds, renderMenu, etc.) restent ici ...
+    // J'inclus la totalité pour que vous puissiez faire un copier-coller direct.
 
     function calculateNeeds() {
         const formData = new FormData(tdeeForm);
@@ -772,7 +743,7 @@ ${jsonSchema}`;
 
     function findCiqualEntry(ingredientName) {
         if (!fuse) return null;
-        // The search must still be done in French as CIQUAL data is in French
+        // La recherche doit toujours se faire en français car les données CIQUAL sont en français
         const results = fuse.search(ingredientName);
         return results.length > 0 ? results[0].item : null;
     }
@@ -798,7 +769,6 @@ ${jsonSchema}`;
     }
 
     async function processAndScaleMenu(creativeMenu, dailyCalorieTarget, planType) {
-        // ... (Le reste de cette fonction est inchangé, elle ne contient pas de texte visible)
         const MEAL_RATIOS = { breakfast: 0.25, lunch: 0.40, dinner: 0.35 };
         const MEAL_RATIOS_WITH_SNACK = { breakfast: 0.20, lunch: 0.35, dinner: 0.30, snack: 0.15 };
         const activeRatios = planType === '3 repas et 1 collation' ? MEAL_RATIOS_WITH_SNACK : MEAL_RATIOS;
@@ -983,4 +953,39 @@ ${jsonSchema}`;
         printContentDiv.innerHTML = `<h1>${lang.printMenuTitle}</h1>${planTableHtml}${shoppingListHtml}${recipesHtml}`;
         window.print();
     }
+    
+    // --- SÉQUENCE D'INITIALISATION ---
+    // Cette fonction principale organise le démarrage de l'application.
+    async function main() {
+        console.log("Démarrage de l'application Equilibre...");
+        
+        // 1. Charger les données nutritionnelles essentielles.
+        await loadCiqualData();
+
+        // 2. Attacher tous les écouteurs d'événements.
+        langSwitcher.addEventListener('change', (e) => setLanguage(e.target.value));
+        suggestIngredientsBtn.addEventListener('click', () => {
+            ingredientsInput.value = translations[currentLang].suggestedIngredientsList;
+        });
+        tdeeForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            calculateNeeds();
+        });
+        calorieRestrictionSelect.addEventListener('change', updateCalorieTargetAndChart);
+        generateMenuBtn.addEventListener('click', handleMenuGeneration);
+        printBtn.addEventListener('click', handlePrint);
+        
+        console.log("Écouteurs d'événements attachés.");
+
+        // 3. Définir la langue initiale de l'interface utilisateur.
+        const savedLang = localStorage.getItem('userLanguage');
+        const browserLang = navigator.language.split('-')[0];
+        const initialLang = savedLang || (translations[browserLang] ? browserLang : 'fr');
+        setLanguage(initialLang);
+        
+        console.log(`Langue définie sur : ${currentLang}. Application prête.`);
+    }
+
+    // Lancer l'application
+    main();
 });
