@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <!-- On revient au thème "cupcake" -->
-<html lang="fr" data-theme="cupcake"> 
+<html lang="fr" data-theme="cupcake">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Equilibre - Votre Planificateur de Repas Personnalisé v3</title>
+    <title data-translate-key="pageTitle">Equilibre - Votre Planificateur de Repas Personnalisé v3</title>
     
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.10.2/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Le bloc de configuration des couleurs a été supprimé -->
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
@@ -18,185 +16,180 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     
     <style>
-    body { font-family: 'Inter', sans-serif; }
-    .modal-box { max-height: 90vh; }
-    #results-container.loading #loader { display: flex; }
-    #results-container.loading #meal-plan-display, #results-container.loading #print-button-container { display: none; }
-    @media print {
-    body, html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body * { visibility: hidden; }
-    #print-content, #print-content * { visibility: visible; }
-    #print-content { position: absolute; left: 0; top: 0; width: 100%; font-size: 10pt; }
-    h1, h2, h3, h4 { color: black !important; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .recipe-block { page-break-inside: avoid; margin-bottom: 1rem; border-top: 2px solid #666; padding-top: 1rem; }
-    ul { list-style-position: inside; }
-    }
+        body { font-family: 'Inter', sans-serif; }
+        .modal-box { max-height: 90vh; }
+        #results-container.loading #loader { display: flex; }
+        #results-container.loading #meal-plan-display, #results-container.loading #print-button-container { display: none; }
+        @media print {
+            body, html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body * { visibility: hidden; }
+            #print-content, #print-content * { visibility: visible; }
+            #print-content { position: absolute; left: 0; top: 0; width: 100%; font-size: 10pt; }
+            h1, h2, h3, h4 { color: black !important; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+            th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .recipe-block { page-break-inside: avoid; margin-bottom: 1rem; border-top: 2px solid #666; padding-top: 1rem; }
+            ul { list-style-position: inside; }
+        }
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
 
     <header class="bg-base-100 shadow-sm">
-      <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl sm:text-4xl font-bold text-primary text-center" data-i18n="app.title">🥗 Equilibre</h1>
-          <p class="text-center text-base-content/70 mt-1" data-i18n="app.subtitle">Votre planificateur de repas intelligent pour un poids équilibré</p>
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-3xl sm:text-4xl font-bold text-primary text-center">🥗 Equilibre</h1>
+            <p class="text-center text-base-content/70 mt-1" data-translate-key="headerSubtitle">Votre planificateur de repas intelligent pour un poids équilibré</p>
+            <div class="text-center mt-2">
+                <label for="lang-switcher" class="sr-only">Changer de langue</label>
+                <select id="lang-switcher" class="select select-bordered select-xs">
+                    <option value="fr" selected>Français</option>
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
         </div>
-
-        <!-- Sélecteur de langue -->
-        <div class="ml-4">
-          <label for="language-select" class="sr-only">Langue</label>
-          <select id="language-select" class="select select-bordered">
-            <option value="fr">Français</option>
-            <option value="en">English</option>
-            <option value="de">Deutsch</option>
-          </select>
-        </div>
-      </div>
     </header>
 
     <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <section id="config-section" class="card bg-base-100 shadow-xl mb-8">
-    <div class="card-body">
-    <h2 class="card-title text-primary border-b pb-2" data-i18n="config.title">Personnalisez votre plan</h2>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
-    <div>
-    <h3 class="font-semibold text-lg mb-3" data-i18n="section.yourInfo">Vos informations</h3>
-    <form id="tdee-form" class="space-y-4">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="form.gender">Sexe</span></div>
-    <div class="flex space-x-4">
-    <label class="label cursor-pointer"><input type="radio" id="male" name="gender" value="male" required class="radio radio-primary"/><span class="label-text ml-2" data-i18n="gender.male">Homme</span></label>
-    <label class="label cursor-pointer"><input type="radio" id="female" name="gender" value="female" required class="radio radio-primary"/><span class="label-text ml-2" data-i18n="gender.female">Femme</span></label>
-    </div>
-    </label>
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="form.age">Âge</span></div>
-    <input type="number" id="age" name="age" required class="input input-bordered w-full" placeholder="ex: 35" data-i18n-placeholder="form.age.placeholder"/>
-    </label>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="form.weight">Poids (kg)</span></div>
-    <input type="number" id="weight" name="weight" required class="input input-bordered w-full" placeholder="ex: 70" data-i18n-placeholder="form.weight.placeholder"/>
-    </label>
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="form.height">Taille (cm)</span></div>
-    <input type="number" id="height" name="height" required class="input input-bordered w-full" placeholder="ex: 175" data-i18n-placeholder="form.height.placeholder"/>
-    </label>
-    </div>
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="form.activity">Niveau d'activité physique</span></div>
-    <select id="activity-level" name="activity-level" required class="select select-bordered">
-    <option value="1.2" data-i18n="option.sedentary">Sédentaire</option>
-    <option value="1.375" data-i18n="option.light">Légèrement actif</option>
-    <option value="1.55" selected data-i18n="option.moderate">Modérément actif</option>
-    <option value="1.725" data-i18n="option.very">Très actif</option>
-    <option value="1.9" data-i18n="option.extreme">Extrêmement actif</option>
-    </select>
-    </label>
-    <button type="submit" class="btn btn-neutral w-full" data-i18n="btn.calculate">Calculer mes besoins</button>
-    </form>
-    <div id="tdee-result" class="alert mt-4 hidden">
-    <div>
-    <p data-i18n="label.imc">IMC: <strong id="imc-value">0</strong> (<span id="imc-interpretation"></span>)</p>
-    <p data-i18n="label.healthyNeeds">Besoins (poids santé): <strong id="healthy-tdee-value">0</strong> kcal/jour</p>
-    <p class="font-bold text-lg" data-i18n="label.maintenance">Maintien: <strong id="tdee-value">0</strong> kcal/jour</p>
-    </div>
-    </div>
-    </div>
+        <section id="config-section" class="card bg-base-100 shadow-xl mb-8">
+            <div class="card-body">
+                <h2 class="card-title text-primary border-b pb-2" data-translate-key="customizeTitle">Personnalisez votre plan</h2>
+            
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3" data-translate-key="yourInfoTitle">Vos informations</h3>
+                        <form id="tdee-form" class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <label class="form-control w-full">
+                                    <div class="label"><span class="label-text" data-translate-key="genderLabel">Sexe</span></div>
+                                    <div class="flex space-x-4">
+                                        <label class="label cursor-pointer"><input type="radio" id="male" name="gender" value="male" required class="radio radio-primary"/><span class="label-text ml-2" data-translate-key="genderMale">Homme</span></label>
+                                        <label class="label cursor-pointer"><input type="radio" id="female" name="gender" value="female" required class="radio radio-primary"/><span class="label-text ml-2" data-translate-key="genderFemale">Femme</span></label>
+                                    </div>
+                                </label>
+                                <label class="form-control w-full">
+                                    <div class="label"><span class="label-text" data-translate-key="ageLabel">Âge</span></div>
+                                    <input type="number" id="age" name="age" required class="input input-bordered w-full" data-translate-key-placeholder="agePlaceholder" placeholder="ex: 35"/>
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <label class="form-control w-full">
+                                    <div class="label"><span class="label-text" data-translate-key="weightLabel">Poids (kg)</span></div>
+                                    <input type="number" id="weight" name="weight" required class="input input-bordered w-full" data-translate-key-placeholder="weightPlaceholder" placeholder="ex: 70"/>
+                                </label>
+                                <label class="form-control w-full">
+                                    <div class="label"><span class="label-text" data-translate-key="heightLabel">Taille (cm)</span></div>
+                                    <input type="number" id="height" name="height" required class="input input-bordered w-full" data-translate-key-placeholder="heightPlaceholder" placeholder="ex: 175"/>
+                                </label>
+                            </div>
+                            <label class="form-control w-full">
+                                <div class="label"><span class="label-text" data-translate-key="activityLabel">Niveau d'activité physique</span></div>
+                                <select id="activity-level" name="activity-level" required class="select select-bordered">
+                                    <option value="1.2" data-translate-key="activitySedentary">Sédentaire</option>
+                                    <option value="1.375" data-translate-key="activityLight">Légèrement actif</option>
+                                    <option value="1.55" selected data-translate-key="activityModerate">Modérément actif</option>
+                                    <option value="1.725" data-translate-key="activityVery">Très actif</option>
+                                    <option value="1.9" data-translate-key="activityExtra">Extrêmement actif</option>
+                                </select>
+                            </label>
+                            <button type="submit" class="btn btn-neutral w-full" data-translate-key="calculateNeedsBtn">Calculer mes besoins</button>
+                        </form>
+                        <div id="tdee-result" class="alert mt-4 hidden">
+                            <div>
+                                <p><span data-translate-key="bmiLabel">IMC</span>: <strong id="imc-value">0</strong> (<span id="imc-interpretation"></span>)</p>
+                                <p><span data-translate-key="healthyNeedsLabel">Besoins (poids santé)</span>: <strong id="healthy-tdee-value">0</strong> <span data-translate-key="kcalDay">kcal/jour</span></p>
+                                <p class="font-bold text-lg"><span data-translate-key="maintenanceLabel">Maintien</span>: <strong id="tdee-value">0</strong> <span data-translate-key="kcalDay2">kcal/jour</span></p>
+                            </div>
+                        </div>
+                    </div>
 
-    <div>
-    <h3 class="font-semibold text-lg mb-3" data-i18n="section.ingredients">Vos ingrédients et options</h3>
-    <div class="space-y-4">
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="label.availableIngredients">Ingrédients disponibles</span></div>
-    <textarea id="ingredients" rows="4" class="textarea textarea-bordered" placeholder="ex: Poulet, brocoli, riz..." data-i18n-placeholder="ingredients.placeholder"></textarea>
-    <button id="suggest-ingredients-btn" class="btn btn-link btn-xs justify-start no-underline hover:underline" data-i18n="suggest.ingredients">Suggérer une liste</button>
-    </label>
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="label.mealStructure">Structure des repas</span></div>
-    <div class="flex space-x-4">
-    <label class="label cursor-pointer"><input type="radio" id="plan3" name="plan-type" value="3 repas" checked class="radio radio-primary"/><span class="label-text ml-2" data-i18n="plan.3">3 repas / jour</span></label>
-    <label class="label cursor-pointer"><input type="radio" id="plan4" name="plan-type" value="3 repas et 1 collation" class="radio radio-primary"/><span class="label-text ml-2" data-i18n="plan.with_snack">Avec collation</span></label>
-    </div>
-    </label>
-    </div>
-    </div>
-    </div>
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3" data-translate-key="ingredientsOptionsTitle">Vos ingrédients et options</h3>
+                        <div class="space-y-4">
+                            <label class="form-control w-full">
+                                <div class="label"><span class="label-text" data-translate-key="ingredientsLabel">Ingrédients disponibles</span></div>
+                                <textarea id="ingredients" rows="4" class="textarea textarea-bordered" data-translate-key-placeholder="ingredientsPlaceholder" placeholder="ex: Poulet, brocoli, riz..."></textarea>
+                                <button id="suggest-ingredients-btn" class="btn btn-link btn-xs justify-start no-underline hover:underline" data-translate-key="suggestIngredientsBtn">Suggérer une liste</button>
+                            </label>
+                            <label class="form-control w-full">
+                                <div class="label"><span class="label-text" data-translate-key="mealStructureLabel">Structure des repas</span></div>
+                                <div class="flex space-x-4">
+                                    <label class="label cursor-pointer"><input type="radio" id="plan3" name="plan-type" value="3 repas" checked class="radio radio-primary"/><span class="label-text ml-2" data-translate-key="plan3Meals">3 repas / jour</span></label>
+                                    <label class="label cursor-pointer"><input type="radio" id="plan4" name="plan-type" value="3 repas et 1 collation" class="radio radio-primary"/><span class="label-text ml-2" data-translate-key="plan3Meals1Snack">Avec collation</span></label>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
 
-    <div id="weight-goal-section" class="mt-8 pt-6 border-t hidden">
-    <h3 class="font-semibold text-lg mb-3 text-center" data-i18n="section.goal">Votre objectif de poids</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-    <div class="space-y-4">
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="label.chooseGoal">Choisissez votre objectif :</span></div>
-    <select id="calorie-restriction" class="select select-bordered">
-    <option value="0" data-i18n="opt.maintain">Maintien du poids</option>
-    <option value="-250" data-i18n="opt.lightLoss">Perte de poids légère (~0.25 kg/semaine)</option>
-    <option value="-500" data-i18n="opt.moderateLoss">Perte de poids modérée (~0.5 kg/semaine)</option>
-    <option value="-750" data-i18n="opt.strongLoss">Perte de poids forte (~0.75 kg/semaine)</option>
-    </select>
-    </label>
-    <div id="strong-deficit-warning" role="alert" class="alert alert-error hidden text-xs"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span data-i18n="warning.strongDeficit">**Attention :** Un déficit calorique important peut présenter des risques.</span></div>
-    <div id="healthy-deficit-warning" role="alert" class="alert alert-warning hidden text-xs"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg><span data-i18n="warning.healthyDeficit">Votre IMC est normal. Perdre plus de poids n'est généralement pas recommandé.</span></div>
-    <label class="form-control w-full">
-    <div class="label"><span class="label-text" data-i18n="label.dailyCalorieTarget">Objectif calorique journalier :</span></div>
-    <input type="number" id="calorie-target" class="input input-bordered font-bold" readonly>
-    </label>
-    </div>
-    <div class="w-full h-64"><canvas id="weight-chart"></canvas></div>
-    </div>
-    </div>
+                <div id="weight-goal-section" class="mt-8 pt-6 border-t hidden">
+                    <h3 class="font-semibold text-lg mb-3 text-center" data-translate-key="goalTitle">Votre objectif de poids</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="space-y-4">
+                            <label class="form-control w-full">
+                                <div class="label"><span class="label-text" data-translate-key="chooseGoalLabel">Choisissez votre objectif :</span></div>
+                                <select id="calorie-restriction" class="select select-bordered">
+                                    <option value="0" data-translate-key="goalMaintain">Maintien du poids</option>
+                                    <option value="-250" data-translate-key="goalMild">Perte de poids légère (~0.25 kg/semaine)</option>
+                                    <option value="-500" data-translate-key="goalModerate">Perte de poids modérée (~0.5 kg/semaine)</option>
+                                    <option value="-750" data-translate-key="goalStrong">Perte de poids forte (~0.75 kg/semaine)</option>
+                                </select>
+                            </label>
+                            <div id="strong-deficit-warning" role="alert" class="alert alert-error hidden text-xs"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span data-translate-key="warningStrongDeficit">**Attention :** Un déficit calorique important peut présenter des risques.</span></div>
+                            <div id="healthy-deficit-warning" role="alert" class="alert alert-warning hidden text-xs"><svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg><span data-translate-key="warningHealthyDeficit">Votre IMC est normal. Perdre plus de poids n'est généralement pas recommandé.</span></div>
+                            <label class="form-control w-full">
+                                <div class="label"><span class="label-text" data-translate-key="dailyCalorieGoalLabel">Objectif calorique journalier :</span></div>
+                                <input type="number" id="calorie-target" class="input input-bordered font-bold" readonly>
+                            </label>
+                        </div>
+                        <div class="w-full h-64"><canvas id="weight-chart"></canvas></div>
+                    </div>
+                </div>
 
-    <div class="card-actions justify-center mt-8">
-    <button id="generate-menu-btn" class="btn btn-primary w-full md:w-auto text-base" data-i18n="generate.button">Générer mon menu personnalisé</button>
-    </div>
-    </div>
-    </section>
+                <div class="card-actions justify-center mt-8">
+                    <button id="generate-menu-btn" class="btn btn-primary w-full md:w-auto text-base" data-translate-key="generateMenuBtn">Générer mon menu personnalisé</button>
+                </div>
+            </div>
+        </section>
 
-    <section id="results-container" class="hidden">
-    <h2 class="text-2xl font-bold text-primary mb-4 border-b pb-2" data-i18n="results.title">Votre Menu de la Semaine</h2>
-    
-    <!-- On remet l'ancienne animation -->
-    <div id="loader" class="text-center py-10 hidden flex-col items-center justify-center">
-    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-    <p class="mt-4"></p>
-    </div>
+        <section id="results-container" class="hidden">
+            <h2 class="text-2xl font-bold text-primary mb-4 border-b pb-2" data-translate-key="resultsTitle">Votre Menu de la Semaine</h2>
+            
+            <div id="loader" class="text-center py-10 hidden flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p class="mt-4"><span data-translate-key="loaderText1">Votre chef personnel IA prépare votre menu...</span><br><span class="text-sm opacity-70" data-translate-key="loaderText2">Cette opération peut prendre jusqu'à 30 secondes.</span></p>
+            </div>
 
-    <div id="print-button-container" class="text-center mb-6">
-    <button id="print-btn" class="btn btn-accent" data-i18n="print.button">🖨️ Imprimer le menu et la liste de courses</button>
-    </div>
+            <div id="print-button-container" class="text-center mb-6">
+                 <button id="print-btn" class="btn btn-accent" data-translate-key="printBtn">🖨️ Imprimer le menu et la liste de courses</button>
+            </div>
 
-    <div id="meal-plan-display" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-    <!-- Le JS va peupler cette section. -->
-    </div>
-    <p id="error-message" class="alert alert-error hidden"></p>
-    </section>
+            <div id="meal-plan-display" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Le JS va peupler cette section. -->
+            </div>
+             <p id="error-message" class="alert alert-error hidden"></p>
+        </section>
     </main>
 
     <dialog id="meal-detail-modal" class="modal">
-    <div class="modal-box">
-    <div id="modal-content"></div>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-    <button>close</button>
-    </form>
+      <div class="modal-box">
+        <div id="modal-content"></div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+      </form>
     </dialog>
 
     <div id="print-content" class="hidden"></div>
     
     <footer class="footer footer-center p-10 bg-base-300 text-base-content rounded mt-12">
-    <aside>
-    <p class="font-bold" data-i18n="disclaimer.title">Avis de non-responsabilité</p>
-    <p data-i18n="disclaimer.line1">Cette application fournit des suggestions nutritionnelles et ne remplace pas un avis médical.</p>
-    <p data-i18n="disclaimer.line2">Les menus sont générés par une IA et doivent être vérifiés en fonction de vos allergies.</p>
-    <p><small data-i18n="disclaimer.source">Données nutritionnelles issues de la table Ciqual 2020 de l'ANSES.</small></p>
-    </aside>
+        <aside>
+            <p class="font-bold" data-translate-key="footerDisclaimerTitle">Avis de non-responsabilité</p>
+            <p data-translate-key="footerDisclaimer1">Cette application fournit des suggestions nutritionnelles et ne remplace pas un avis médical.</p>
+            <p data-translate-key="footerDisclaimer2">Les menus sont générés par une IA et doivent être vérifiés en fonction de vos allergies.</p>
+            <p><small data-translate-key="footerDisclaimer3">Données nutritionnelles issues de la table Ciqual 2020 de l'ANSES.</small></p>
+        </aside>
     </footer>
 <script src="script.js" defer></script>
 </body>
