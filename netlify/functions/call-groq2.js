@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
+
     // --- CONFIGURATION ---
     const NETLIFY_FUNCTION_PATH = '/.netlify/functions/call-groq2';
 
@@ -57,6 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             footerDisclaimer3: "Nutritional data from ANSES's Ciqual 2020 table.",
             suggestedIngredientsList: "Chicken, Salmon, Red lentils, Whole wheat pasta, Basmati rice, Milk, Whole wheat bread, Rolled oats, Broccoli, Carrots, Tomatoes, Onion, Garlic, Olive oil, Plain yogurt, Apples, Walnuts.",
             alertFillAllFields: "Please fill in all the calculator fields.",
+            alertDataLoading: "Data is still loading, please wait a moment.",
             imcUnderweight: "Underweight",
             imcNormal: "Normal weight",
             imcOverweight: "Overweight",
@@ -161,6 +163,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             footerDisclaimer3: "Nährwertdaten aus der Ciqual 2020 Tabelle von ANSES.",
             suggestedIngredientsList: "Huhn, Lachs, Rote Linsen, Vollkornnudeln, Basmatireis, Milch, Vollkornbrot, Haferflocken, Brokkoli, Karotten, Tomaten, Zwiebel, Knoblauch, Olivenöl, Naturjoghurt, Äpfel, Walnüsse.",
             alertFillAllFields: "Bitte füllen Sie alle Felder des Rechners aus.",
+            alertDataLoading: "Daten werden noch geladen, bitte warten Sie einen Moment.",
             imcUnderweight: "Untergewicht",
             imcNormal: "Normalgewicht",
             imcOverweight: "Übergewicht",
@@ -265,6 +268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             footerDisclaimer3: "Données nutritionnelles issues de la table Ciqual 2020 de l'ANSES.",
             suggestedIngredientsList: "Poulet, Saumon, Lentilles corail, Pâtes complètes, Riz basmati, Lait, Pain complet, Flocons d'avoine, Brocoli, Carottes, Tomates, Oignon, Ail, Huile d'olive, Yaourts nature, Pommes, Noix.",
             alertFillAllFields: "Veuillez remplir tous les champs du calculateur.",
+            alertDataLoading: "Les données sont en cours de chargement, veuillez patienter un instant.",
             imcUnderweight: "Maigreur",
             imcNormal: "Poids normal",
             imcOverweight: "Surpoids",
@@ -382,49 +386,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const translationData = translations[lang];
-
         document.querySelectorAll('[data-translate-key]').forEach(el => {
             const key = el.getAttribute('data-translate-key');
-            if (translationData[key]) {
-                el.innerHTML = translationData[key];
-            }
+            if (translationData[key]) el.innerHTML = translationData[key];
         });
-
         document.querySelectorAll('[data-translate-key-placeholder]').forEach(el => {
             const key = el.getAttribute('data-translate-key-placeholder');
-            if (translationData[key]) {
-                el.placeholder = translationData[key];
-            }
+            if (translationData[key]) el.placeholder = translationData[key];
         });
-        
         document.querySelectorAll('[data-translate-key-title]').forEach(el => {
             const key = el.getAttribute('data-translate-key-title');
-            if (translationData[key]) {
-                el.title = translationData[key];
-            }
+            if (translationData[key]) el.title = translationData[key];
         });
 
-        // Mettre à jour dynamiquement les éléments qui ne sont pas dans le HTML initial
         if (weightChart) updateWeightProjectionChart();
         if (processedMenuData) renderMenu(processedMenuData.weeklyPlan);
     }
     
     // --- FONCTIONS PRINCIPALES DE L'APP ---
-    function parseCiqualValue(value) {
-        if (typeof value !== 'string') {
-            return !isNaN(value) ? Number(value) : 0;
-        }
-        const cleanString = value.replace(',', '.').replace(/[^\d.-]/g, '');
-        const number = parseFloat(cleanString);
-        return isNaN(number) ? 0 : number;
-    }
-
     async function loadCiqualData() {
         try {
             const response = await fetch('ciqual-complet.json');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const rawData = await response.json();
-
             CIQUAL_DATA = rawData.compo
                 .map(item => ({
                     name_fr: item.alim_nom_fr,
@@ -434,58 +418,45 @@ document.addEventListener('DOMContentLoaded', async () => {
                     fats: parseCiqualValue(item['Lipides (g/100 g)'])
                 }))
                 .filter(item => item.kcal > 0);
-            
-            console.log("Données CIQUAL chargées:", CIQUAL_DATA.length, "aliments.");
-            
             fuse = new Fuse(CIQUAL_DATA, { includeScore: true, keys: ['name_fr'], threshold: 0.4 });
         } catch (error) {
             console.error("Erreur critique lors du chargement des données:", error);
-            document.body.innerHTML = "<h1>Erreur</h1><p>Impossible de charger la base de données nutritionnelle (ciqual-complet.json). Vérifiez que le fichier est présent et que le serveur est bien lancé.</p>";
-            throw error; // Empêcher le reste du script de s'exécuter
+            document.body.innerHTML = `<h1>Erreur de chargement</h1><p>Impossible de charger la base de données nutritionnelle (ciqual-complet.json). L'application ne peut pas fonctionner. Veuillez vérifier la console pour plus de détails.</p>`;
+            // NE PAS re-lancer l'erreur pour ne pas bloquer le script
         }
     }
 
-    // ... Toutes les autres fonctions de votre application (calculateNeeds, renderMenu, etc.) restent ici ...
-    // J'inclus la totalité pour que vous puissiez faire un copier-coller direct.
+    function checkDataLoaded() {
+        if (!fuse) {
+            alert(translations[currentLang].alertDataLoading);
+            return false;
+        }
+        return true;
+    }
 
     function calculateNeeds() {
+        if (!checkDataLoaded()) return;
         const formData = new FormData(tdeeForm);
         const gender = formData.get('gender');
         const age = parseInt(formData.get('age'));
         const weight = parseFloat(formData.get('weight'));
         const height = parseFloat(formData.get('height'));
         const activityLevel = parseFloat(formData.get('activity-level'));
-
         if (!gender || !age || !weight || !height || !activityLevel) {
             alert(translations[currentLang].alertFillAllFields);
             return;
         }
-
-        const calculateBMR = (currentWeight, currentHeight, currentAge, currentGender) => {
-            if (currentGender === 'male') {
-                return 10 * currentWeight + 6.25 * currentHeight - 5 * currentAge + 5;
-            } else {
-                return 10 * currentWeight + 6.25 * currentHeight - 5 * currentAge - 161;
-            }
-        };
-
-        const currentBMR = calculateBMR(weight, height, age, gender);
-        maintenanceCalories = Math.round(currentBMR * activityLevel);
+        const calculateBMR = (w, h, a, g) => g === 'male' ? (10 * w + 6.25 * h - 5 * a + 5) : (10 * w + 6.25 * h - 5 * a - 161);
+        maintenanceCalories = Math.round(calculateBMR(weight, height, age, gender) * activityLevel);
         tdeeValueSpan.textContent = maintenanceCalories;
-
         const heightInMeters = height / 100;
-        const imc = (weight / (heightInMeters * heightInMeters)).toFixed(1);
+        const imc = (weight / (heightInMeters ** 2)).toFixed(1);
         imcValueSpan.textContent = imc;
         imcInterpretationSpan.textContent = getImcInterpretation(imc);
-        
-        const healthyWeight = (24.9 * (heightInMeters * heightInMeters)).toFixed(1);
-        const healthyBMR = calculateBMR(healthyWeight, height, age, gender);
-        const healthyTDEE = Math.round(healthyBMR * activityLevel);
-        healthyTdeeValueSpan.textContent = healthyTDEE;
-
+        const healthyWeight = (24.9 * (heightInMeters ** 2)).toFixed(1);
+        healthyTdeeValueSpan.textContent = Math.round(calculateBMR(healthyWeight, height, age, gender) * activityLevel);
         tdeeResultDiv.classList.remove('hidden');
         weightGoalSection.classList.remove('hidden');
-        
         updateCalorieTargetAndChart();
     }
 
@@ -499,7 +470,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateCalorieTargetAndChart() {
         if (maintenanceCalories <= 0) return;
-        
         const restriction = parseInt(calorieRestrictionSelect.value);
         calorieTargetInput.value = maintenanceCalories + restriction;
         strongDeficitWarning.classList.toggle('hidden', restriction > -750);
@@ -510,21 +480,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const weight = parseFloat(document.getElementById('weight').value);
         const height = parseFloat(document.getElementById('height').value);
         if (!weight || !height) return;
-        
         const lang = translations[currentLang];
         const heightInMeters = height / 100;
-        const imc = weight / (heightInMeters * heightInMeters);
-        const targetWeight = parseFloat((24.9 * (heightInMeters * heightInMeters)).toFixed(1));
+        const imc = weight / (heightInMeters ** 2);
+        const targetWeight = parseFloat((24.9 * (heightInMeters ** 2)).toFixed(1));
         const restriction = parseInt(calorieRestrictionSelect.value);
-    
         const labels = Array.from({ length: 13 }, (_, i) => `${lang.chartMonth} ${i}`);
         const data = [weight];
         let currentWeight = weight;
         let isUnadvisedLoss = (restriction < 0 && imc < 25);
-        
         if (restriction < 0) {
-            const weeklyLossKg = (Math.abs(restriction) * 7) / 7700;
-            const monthlyLossKg = weeklyLossKg * 4.345;
+            const monthlyLossKg = ((Math.abs(restriction) * 7) / 7700) * 4.345;
             for (let i = 1; i <= 12; i++) {
                 currentWeight -= monthlyLossKg;
                 data.push(parseFloat(currentWeight.toFixed(1)));
@@ -532,137 +498,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
              for (let i = 1; i <= 12; i++) { data.push(weight); }
         }
-        
         healthyDeficitWarning.classList.toggle('hidden', !isUnadvisedLoss);
-    
         const chartData = {
             labels: labels,
             datasets: [{
-                label: lang.chartProjectedWeight,
-                data: data,
-                segment: {
-                    borderColor: ctx => {
-                        if (ctx.p0 && ctx.p1) {
-                            const p0y = ctx.p0.parsed.y;
-                            const p1y = ctx.p1.parsed.y;
-                            if ((p0y + p1y) / 2 <= targetWeight) {
-                                return '#ef4444';
-                            }
-                        }
-                        return isUnadvisedLoss ? '#ef4444' : '#65a30d'; 
-                    }
-                },
-                backgroundColor: ctx => {
-                    if (ctx.type === 'segment' && ctx.p0 && ctx.p1) {
-                        const p0y = ctx.p0.parsed.y;
-                        const p1y = ctx.p1.parsed.y;
-                        if ((p0y + p1y) / 2 <= targetWeight) {
-                            return 'rgba(239, 68, 68, 0.1)';
-                        }
-                    }
-                    return isUnadvisedLoss ? 'rgba(239, 68, 68, 0.1)' : 'rgba(101, 163, 13, 0.1)'; 
-                },
-                fill: true,
-                tension: 0.1
+                label: lang.chartProjectedWeight, data: data, fill: true, tension: 0.1,
+                segment: { borderColor: ctx => ((ctx.p0.parsed.y + ctx.p1.parsed.y) / 2 <= targetWeight) ? '#ef4444' : (isUnadvisedLoss ? '#ef4444' : '#65a30d') },
+                backgroundColor: ctx => ((ctx.p0?.parsed.y + ctx.p1?.parsed.y) / 2 <= targetWeight) ? 'rgba(239, 68, 68, 0.1)' : (isUnadvisedLoss ? 'rgba(239, 68, 68, 0.1)' : 'rgba(101, 163, 13, 0.1)')
             }, {
-                label: lang.chartTargetWeight,
-                data: Array(13).fill(targetWeight),
-                borderColor: '#fb923c', 
-                borderDash: [5, 5],
-                fill: false,
-                pointRadius: 0
+                label: lang.chartTargetWeight, data: Array(13).fill(targetWeight), borderColor: '#fb923c', borderDash: [5, 5], fill: false, pointRadius: 0
             }]
         };
-    
         const ctx = document.getElementById('weight-chart').getContext('2d');
         if (weightChart) {
             weightChart.data = chartData;
             weightChart.options.scales.y.title.text = lang.chartWeightAxis;
             weightChart.update();
         } else {
-            weightChart = new Chart(ctx, { 
-                type: 'line', 
-                data: chartData, 
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    scales: { y: { title: { display: true, text: lang.chartWeightAxis } } }, 
-                    plugins: { legend: { display: true, position: 'bottom' } } 
-                } 
-            });
+            weightChart = new Chart(ctx, { type: 'line', data: chartData, options: { responsive: true, maintainAspectRatio: false, scales: { y: { title: { display: true, text: lang.chartWeightAxis } } }, plugins: { legend: { display: true, position: 'bottom' } } } });
         }
     }
 
     function renderMenu(weeklyPlan) {
         mealPlanDisplay.innerHTML = '';
         const lang = translations[currentLang];
-        const legendHtml = `
-        <div class="col-span-1 sm:col-span-2 lg:col-span-4 mb-4 p-2 bg-base-200 rounded-lg flex items-center justify-center space-x-4 flex-wrap">
-            <div class="flex items-center space-x-2"><div class="w-3 h-3 rounded-sm bg-primary"></div><span class="text-xs font-semibold">${lang.legendProteins}</span></div>
-            <div class="flex items-center space-x-2"><div class="w-3 h-3 rounded-sm bg-secondary"></div><span class="text-xs font-semibold">${lang.legendCarbs}</span></div>
-            <div class="flex items-center space-x-2"><div class="w-3 h-3 rounded-sm bg-accent"></div><span class="text-xs font-semibold">${lang.legendFats}</span></div>
-        </div>`;
-        mealPlanDisplay.insertAdjacentHTML('beforeend', legendHtml);        
+        const legendHtml = `<div class="col-span-1 sm:col-span-2 lg:col-span-4 mb-4 p-2 bg-base-200 rounded-lg flex items-center justify-center space-x-4 flex-wrap"><div class="flex items-center space-x-2"><div class="w-3 h-3 rounded-sm bg-primary"></div><span class="text-xs font-semibold">${lang.legendProteins}</span></div><div class="flex items-center space-x-2"><div class="w-3 h-3 rounded-sm bg-secondary"></div><span class="text-xs font-semibold">${lang.legendCarbs}</span></div><div class="flex items-center space-x-2"><div class="w-3 h-3 rounded-sm bg-accent"></div><span class="text-xs font-semibold">${lang.legendFats}</span></div></div>`;
+        mealPlanDisplay.insertAdjacentHTML('beforeend', legendHtml);
         const planType = document.querySelector('input[name="plan-type"]:checked').value;
         const mealTypeLabels = { breakfast: lang.mealBreakfast, lunch: lang.mealLunch, dinner: lang.mealDinner, snack: lang.mealSnack };
-    
         weeklyPlan.forEach((dayData, dayIndex) => {
             const dayCard = document.createElement('div');
             dayCard.className = 'card bg-base-100 shadow-xl flex flex-col';
-            
             const cardBody = document.createElement('div');
             cardBody.className = 'card-body p-4 flex flex-col';
-            
-            cardBody.innerHTML = `
-                <div>
-                    <h3 class="card-title text-center block">${dayData.day}</h3>
-                    <p class="text-center text-sm font-semibold mb-2">${dayData.daily_calories_total || 0} kcal</p>
-                </div>
-            `;
-    
-            const macros = dayData.daily_macros_total;
-            const totalCalories = dayData.daily_calories_total;
-            
+            cardBody.innerHTML = `<div><h3 class="card-title text-center block">${dayData.day}</h3><p class="text-center text-sm font-semibold mb-2">${dayData.daily_calories_total || 0} kcal</p></div>`;
+            const macros = dayData.daily_macros_total, totalCalories = dayData.daily_calories_total;
             if (macros && totalCalories > 0) {
-                const proteinPercent = Math.round((macros.proteins * 4 / totalCalories) * 100);
-                const carbPercent = Math.round((macros.carbs * 4 / totalCalories) * 100);
-                const fatPercent = 100 - proteinPercent - carbPercent;
-                
-                cardBody.innerHTML += `
-                    <div class="flex flex-col gap-1 mt-2">
-                        <progress class="progress progress-primary w-full" value="${proteinPercent}" max="100" title="${lang.legendProteins}: ${proteinPercent}%"></progress>
-                        <progress class="progress progress-secondary w-full" value="${carbPercent}" max="100" title="${lang.legendCarbs}: ${carbPercent}%"></progress>
-                        <progress class="progress progress-accent w-full" value="${fatPercent}" max="100" title="${lang.legendFats}: ${fatPercent}%"></progress>
-                    </div>
-                `;
+                const p = Math.round((macros.proteins * 4 / totalCalories) * 100), c = Math.round((macros.carbs * 4 / totalCalories) * 100), f = 100 - p - c;
+                cardBody.innerHTML += `<div class="flex flex-col gap-1 mt-2"><progress class="progress progress-primary w-full" value="${p}" max="100" title="${lang.legendProteins}: ${p}%"></progress><progress class="progress progress-secondary w-full" value="${c}" max="100" title="${lang.legendCarbs}: ${c}%"></progress><progress class="progress progress-accent w-full" value="${f}" max="100" title="${lang.legendFats}: ${f}%"></progress></div>`;
             }
-            
             const mealsContainer = document.createElement('div');
-            mealsContainer.className = 'space-y-2 mt-4 flex-grow'; 
+            mealsContainer.className = 'space-y-2 mt-4 flex-grow';
             cardBody.appendChild(mealsContainer);
             dayCard.appendChild(cardBody);
-    
-            const mealsOrder = ['breakfast', 'lunch', 'dinner', 'snack'];
-            mealsOrder.forEach(mealType => {
+            ['breakfast', 'lunch', 'dinner', 'snack'].forEach(mealType => {
                 if (mealType === 'snack' && planType !== '3 repas et 1 collation') return;
                 const meal = dayData.meals[mealType];
                 if (meal && meal.name) {
                     const mealCard = document.createElement('div');
                     mealCard.className = 'card card-compact bg-base-200/50';
-                    const iconSvg = `<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>`;
-    
-                    mealCard.innerHTML = `
-                        <div class="card-body flex-row items-center p-2">
-                            <div class="flex-grow">
-                                <p class="font-bold text-xs text-primary uppercase tracking-wider">${mealTypeLabels[mealType] || mealType}</p>
-                                <p class="text-sm leading-tight">${meal.name}</p>
-                                <p class="text-xs opacity-60">${meal.calories || 'N/A'} kcal</p>
-                            </div>
-                            <div class="card-actions">
-                               <button class="btn btn-ghost btn-square btn-sm">${iconSvg}</button>
-                            </div>
-                        </div>
-                    `;
+                    mealCard.innerHTML = `<div class="card-body flex-row items-center p-2"><div class="flex-grow"><p class="font-bold text-xs text-primary uppercase tracking-wider">${mealTypeLabels[mealType] || mealType}</p><p class="text-sm leading-tight">${meal.name}</p><p class="text-xs opacity-60">${meal.calories || 'N/A'} kcal</p></div><div class="card-actions"><button class="btn btn-ghost btn-square btn-sm"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg></button></div></div>`;
                     mealCard.querySelector('button').addEventListener('click', () => showMealDetails(dayIndex, mealType));
                     mealsContainer.appendChild(mealCard);
                 }
@@ -672,38 +557,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function handleMenuGeneration() {
+        if (!checkDataLoaded()) return;
         const calorieTarget = parseInt(calorieTargetInput.value);
         const ingredients = ingredientsInput.value.trim();
         const planType = document.querySelector('input[name="plan-type"]:checked').value;
         const lang = translations[currentLang];
-
-        if (!calorieTarget || calorieTarget <= 0) {
-            alert(lang.alertCalculateNeedsFirst);
-            return;
-        }
-        if (!ingredients) {
-            alert(lang.alertListIngredients);
-            return;
-        }
-
+        if (!calorieTarget || calorieTarget <= 0) return alert(lang.alertCalculateNeedsFirst);
+        if (!ingredients) return alert(lang.alertListIngredients);
         resultsContainer.classList.remove('hidden');
         resultsContainer.classList.add('loading');
         mealPlanDisplay.innerHTML = '';
         errorMessage.classList.add('hidden');
-        
         const prompt = buildCreativeMenuPrompt(ingredients, planType);
-        
         try {
             const responseText = await callGroqAPI(prompt, generateMenuBtn, true);
             const creativeMenu = JSON.parse(responseText);
-
-            if (creativeMenu.status === 'error' || !creativeMenu.weeklyPlan) {
-                throw new Error(creativeMenu.message || lang.errorIaMenu);
-            }
-            
+            if (creativeMenu.status === 'error' || !creativeMenu.weeklyPlan) throw new Error(creativeMenu.message || lang.errorIaMenu);
             processedMenuData = await processAndScaleMenu(creativeMenu, calorieTarget, planType);
             renderMenu(processedMenuData.weeklyPlan);
-
         } catch (error) {
             handleError(error);
         } finally {
@@ -712,58 +583,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function buildCreativeMenuPrompt(ingredientsList, menuStructure) {
-         const lang = translations[currentLang];
-         const jsonSchema = `{
-          "status": "success" | "error", "message": "string",
-          "weeklyPlan": [ { "day": "string", "meals": {
-              "breakfast": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" },
-              "lunch": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" },
-              "dinner": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" },
-              "snack": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" }
-            } } ],
-            "added_staples": ["string"]
-        }`;
-        
-        return `${lang.promptRole}
-${lang.promptContext}
-- ${lang.promptMenuStructure}: "${menuStructure}".
-- ${lang.promptAvailableIngredients}: [${ingredientsList}].
-- ${lang.promptNutritionalGoal}: "${lang.promptNutritionalGoalDetail}"
-
-${lang.promptRules}
-- ${lang.promptRuleCritical1}
-- ${lang.promptRuleLanguage} ${lang.promptLang}.
-- ${lang.promptRuleNoCalc}
-- ${lang.promptRuleMealDetails}
-- ${lang.promptRuleQuantities}
-- ${lang.promptRulePrioritize}
-- ${lang.promptRuleStaples}
-${jsonSchema}`;
+        const lang = translations[currentLang];
+        const jsonSchema = `{"status": "success" | "error", "message": "string","weeklyPlan": [ { "day": "string", "meals": {"breakfast": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" },"lunch": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" },"dinner": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" },"snack": { "name": "string", "base_ingredients": [{"name": "string", "quantity": "number", "unit": "string"}], "preparation": "string" }}} ],"added_staples": ["string"]}`;
+        return `${lang.promptRole}\n${lang.promptContext}\n- ${lang.promptMenuStructure}: "${menuStructure}".\n- ${lang.promptAvailableIngredients}: [${ingredientsList}].\n- ${lang.promptNutritionalGoal}: "${lang.promptNutritionalGoalDetail}"\n\n${lang.promptRules}\n- ${lang.promptRuleCritical1}\n- ${lang.promptRuleLanguage} ${lang.promptLang}.\n- ${lang.promptRuleNoCalc}\n- ${lang.promptRuleMealDetails}\n- ${lang.promptRuleQuantities}\n- ${lang.promptRulePrioritize}\n- ${lang.promptRuleStaples}\n${jsonSchema}`;
     }
 
-    function findCiqualEntry(ingredientName) {
-        if (!fuse) return null;
-        // La recherche doit toujours se faire en français car les données CIQUAL sont en français
-        const results = fuse.search(ingredientName);
-        return results.length > 0 ? results[0].item : null;
-    }
+    function findCiqualEntry(ingredientName) { return fuse ? (fuse.search(ingredientName)[0]?.item || null) : null; }
 
     function convertToGrams(ingredientName, quantity, unit) {
         const cleanedUnit = unit.toLowerCase().replace(/s$/, '').replace(/\.$/, '');
-        if (cleanedUnit === 'g' || cleanedUnit === 'gramme' || cleanedUnit === 'gramm') return quantity;
-        if (cleanedUnit === 'kg' || cleanedUnit === 'kilogramme' || cleanedUnit === 'kilogramm') return quantity * 1000;
-        
+        if (['g', 'gramme', 'gramm'].includes(cleanedUnit)) return quantity;
+        if (['kg', 'kilogramme', 'kilogramm'].includes(cleanedUnit)) return quantity * 1000;
         const lowerCaseIngredientName = ingredientName.toLowerCase();
         for (const key in UNIT_CONVERSIONS) {
             if (lowerCaseIngredientName.includes(key)) {
                 const conversion = UNIT_CONVERSIONS[key];
-                if (conversion[cleanedUnit]) {
-                    return quantity * conversion[cleanedUnit];
-                }
+                if (conversion[cleanedUnit]) return quantity * conversion[cleanedUnit];
             }
         }
-        
-        if (cleanedUnit === 'ml' || cleanedUnit === 'milliliter' || cleanedUnit === 'millilitre') return quantity;
+        if (['ml', 'milliliter', 'millilitre'].includes(cleanedUnit)) return quantity; // Approx 1g
         console.warn(`No conversion rule for: ${ingredientName} with unit ${unit}`);
         return null;
     }
@@ -774,55 +612,42 @@ ${jsonSchema}`;
         const activeRatios = planType === '3 repas et 1 collation' ? MEAL_RATIOS_WITH_SNACK : MEAL_RATIOS;
         let processedPlan = JSON.parse(JSON.stringify(creativeMenu));
         for (const day of processedPlan.weeklyPlan) {
-            let dailyCaloriesTotal = 0;
+            let dailyCaloriesTotal = 0, dailyProteinsTotal = 0, dailyCarbsTotal = 0, dailyFatsTotal = 0;
             for (const mealType in activeRatios) {
                 const meal = day.meals[mealType];
                 if (!meal || !meal.base_ingredients) continue;
                 let mealBaseCalories = 0;
-                for (const ing of meal.base_ingredients) {
+                meal.base_ingredients.forEach(ing => {
                     const ciqualEntry = findCiqualEntry(ing.name);
-                    if (!ciqualEntry) continue;
-                    const baseGrams = convertToGrams(ing.name, ing.quantity, ing.unit);
-                    if (baseGrams !== null) {
-                        mealBaseCalories += (baseGrams / 100) * ciqualEntry.kcal;
-                    }
-                }
+                    const baseGrams = ciqualEntry ? convertToGrams(ing.name, ing.quantity, ing.unit) : null;
+                    if (baseGrams !== null) mealBaseCalories += (baseGrams / 100) * ciqualEntry.kcal;
+                });
                 const mealTargetCalories = dailyCalorieTarget * activeRatios[mealType];
                 const scalingFactor = mealBaseCalories > 0 ? mealTargetCalories / mealBaseCalories : 0;
                 let finalMealCalories = 0, finalMealProteins = 0, finalMealCarbs = 0, finalMealFats = 0;
-                let finalIngredients = [];
-                for (const ing of meal.base_ingredients) {
+                meal.ingredients = [];
+                meal.base_ingredients.forEach(ing => {
                     const ciqualEntry = findCiqualEntry(ing.name);
-                    if (!ciqualEntry) continue;
-                    const baseGrams = convertToGrams(ing.name, ing.quantity, ing.unit);
-                    if (baseGrams === null) continue;
+                    const baseGrams = ciqualEntry ? convertToGrams(ing.name, ing.quantity, ing.unit) : null;
+                    if (baseGrams === null) return;
                     const finalGrams = baseGrams * scalingFactor;
                     finalMealCalories += (finalGrams / 100) * ciqualEntry.kcal;
                     finalMealProteins += (finalGrams / 100) * ciqualEntry.proteins;
                     finalMealCarbs += (finalGrams / 100) * ciqualEntry.carbs;
                     finalMealFats += (finalGrams / 100) * ciqualEntry.fats;
-                    finalIngredients.push({ item: ing.name, quantity: `${Math.round(finalGrams)} g` });
-                }
-                meal.ingredients = finalIngredients;
+                    meal.ingredients.push({ item: ing.name, quantity: `${Math.round(finalGrams)} g` });
+                });
                 delete meal.base_ingredients;
                 meal.calories = Math.round(finalMealCalories);
                 meal.proteins = Math.round(finalMealProteins);
                 meal.carbs = Math.round(finalMealCarbs);
                 meal.fats = Math.round(finalMealFats);
                 dailyCaloriesTotal += meal.calories;
+                dailyProteinsTotal += meal.proteins;
+                dailyCarbsTotal += meal.carbs;
+                dailyFatsTotal += meal.fats;
             }
             day.daily_calories_total = dailyCaloriesTotal;
-            let dailyProteinsTotal = 0, dailyCarbsTotal = 0, dailyFatsTotal = 0;
-            Object.values(day.meals).forEach(meal => {
-                if (meal && meal.calories) {
-                    if (!activeRatios[Object.keys(day.meals).find(key => day.meals[key] === meal)]) {
-                    } else {
-                        dailyProteinsTotal += meal.proteins || 0;
-                        dailyCarbsTotal += meal.carbs || 0;
-                        dailyFatsTotal += meal.fats || 0;
-                    }
-                }
-            });
             day.daily_macros_total = { proteins: dailyProteinsTotal, carbs: dailyCarbsTotal, fats: dailyFatsTotal };
         }
         return processedPlan;
@@ -832,160 +657,32 @@ ${jsonSchema}`;
         const recipe = processedMenuData.weeklyPlan[dayIndex].meals[mealType];
         if (!recipe) return;
         const lang = translations[currentLang];
-        
         let ingredientsHtml = recipe.ingredients ? recipe.ingredients.map(ing => `<li>${ing.quantity} ${ing.item}</li>`).join('') : '';
-        modalContent.innerHTML = `
-            <form method="dialog">
-                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-            </form>
-            <h3 class="font-bold text-lg text-primary">${recipe.name}</h3>
-            <div class="py-4 space-y-4">
-                <div class="text-center">
-                    <p class="font-semibold text-base-content/80 mb-1">${recipe.calories} kcal (${lang.printCalculated})</p>
-                    <div class="flex justify-center space-x-4 text-sm text-base-content/70 mb-4">
-                        <span><strong>P:</strong> ${recipe.proteins}g</span>
-                        <span><strong>G:</strong> ${recipe.carbs}g</span>
-                        <span><strong>L:</strong> ${recipe.fats}g</span>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="font-bold">${lang.printIngredients}</h4>
-                    <ul class="list-disc list-inside mb-4">${ingredientsHtml}</ul>
-                    <h4 class="font-bold">${lang.printPreparation}</h4>
-                    <p class="text-sm">${recipe.preparation.replace(/\n/g, '<br>')}</p>
-                </div>
-            </div>
-        `;
+        modalContent.innerHTML = `<form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form><h3 class="font-bold text-lg text-primary">${recipe.name}</h3><div class="py-4 space-y-4"><div class="text-center"><p class="font-semibold text-base-content/80 mb-1">${recipe.calories} kcal (${lang.printCalculated})</p><div class="flex justify-center space-x-4 text-sm text-base-content/70 mb-4"><span><strong>P:</strong> ${recipe.proteins}g</span><span><strong>G:</strong> ${recipe.carbs}g</span><span><strong>L:</strong> ${recipe.fats}g</span></div></div><div><h4 class="font-bold">${lang.printIngredients}</h4><ul class="list-disc list-inside mb-4">${ingredientsHtml}</ul><h4 class="font-bold">${lang.printPreparation}</h4><p class="text-sm">${recipe.preparation.replace(/\n/g, '<br>')}</p></div></div>`;
         modal.showModal();
     }
     
-    async function callGroqAPI(prompt, buttonToDisable, isJsonMode = false) {
+    async function callGroqAPI(prompt, button, isJsonMode = false) {
         const lang = translations[currentLang];
-        if (buttonToDisable) {
-            buttonToDisable.disabled = true;
-            buttonToDisable.dataset.originalText = buttonToDisable.innerHTML;
-            buttonToDisable.innerHTML = lang.btnGenerating;
-        }
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = lang.btnGenerating;
         try {
-            const response = await fetch(NETLIFY_FUNCTION_PATH, {
-                method: 'POST', body: JSON.stringify({ prompt, isJsonMode }), headers: { 'Content-Type': 'application/json' }
-            });
+            const response = await fetch(NETLIFY_FUNCTION_PATH, { method: 'POST', body: JSON.stringify({ prompt, isJsonMode }), headers: { 'Content-Type': 'application/json' } });
             const responseText = await response.text();
             if (!response.ok) {
                 let errorMsg = `${lang.errorServer} ${response.status}`;
-                try { errorMsg = JSON.parse(responseText).error || errorMsg; } catch (e) { if(responseText) errorMsg += ` - ${responseText}`; }
+                try { errorMsg = JSON.parse(responseText).error || errorMsg; } catch (e) { if (responseText) errorMsg += ` - ${responseText}`; }
                 throw new Error(errorMsg);
             }
             return responseText || null;
-        } catch (error) {
-            console.error("API Call failed:", error);
-            throw error;
         } finally {
-            if (buttonToDisable) {
-                buttonToDisable.disabled = false;
-                buttonToDisable.innerHTML = buttonToDisable.dataset.originalText;
-            }
+            button.disabled = false;
+            button.innerHTML = originalText;
         }
     }
 
     function handleError(error) {
         console.error("Error:", error);
         let displayError = error.message;
-        if (error instanceof SyntaxError) {
-            displayError = translations[currentLang].errorJson;
-        }
-        errorMessage.textContent = displayError;
-        errorMessage.classList.remove('hidden');
-    }
-
-    function handlePrint() {
-        const lang = translations[currentLang];
-        if (!processedMenuData || !processedMenuData.weeklyPlan) {
-            alert(lang.alertGenerateMenuFirst);
-            return;
-        }
-        const shoppingList = {};
-        processedMenuData.weeklyPlan.forEach(day => {
-            Object.values(day.meals).forEach(meal => {
-                if(meal && meal.ingredients) {
-                    meal.ingredients.forEach(ing => {
-                        const itemKey = ing.item.toLowerCase().trim();
-                        shoppingList[itemKey] = (shoppingList[itemKey] || 0) + 1; 
-                    });
-                }
-            });
-        });
-        
-        let shoppingListHtml = `<h3>${lang.printShopListTitle}</h3><ul>`;
-        for(const item in shoppingList){ shoppingListHtml += `<li>${item.charAt(0).toUpperCase() + item.slice(1)}</li>`; }
-        shoppingListHtml += '</ul>';
-        
-        if(processedMenuData.added_staples && processedMenuData.added_staples.length > 0){
-            shoppingListHtml += `<h4>${lang.printStaplesTitle}</h4><ul>`;
-            processedMenuData.added_staples.forEach(item => { shoppingListHtml += `<li>${item}</li>`; });
-            shoppingListHtml += '</ul>';
-        }
-
-        let planTableHtml = `<h2>${lang.printWeekPlanTitle}</h2><table><thead><tr><th>${lang.printDay}</th><th>${lang.printBreakfast}</th><th>${lang.printLunch}</th><th>${lang.printDinner}</th><th>${lang.printSnack}</th></tr></thead><tbody>`;
-        processedMenuData.weeklyPlan.forEach(day => {
-            planTableHtml += `<tr><td><strong>${day.day}</strong></td><td>${day.meals.breakfast?.name || ''}</td><td>${day.meals.lunch?.name || ''}</td><td>${day.meals.dinner?.name || ''}</td><td>${day.meals.snack?.name || ''}</td></tr>`;
-        });
-        planTableHtml += '</tbody></table>';
-        
-        const mealTypeLabels = { breakfast: lang.mealBreakfast, lunch: lang.mealLunch, dinner: lang.mealDinner, snack: lang.mealSnack };
-        let recipesHtml = `<h2>${lang.printRecipesTitle}</h2>`;
-        processedMenuData.weeklyPlan.forEach(day => {
-            recipesHtml += `<div class="recipe-block"><h3>${day.day}</h3>`;
-            Object.entries(day.meals).forEach(([mealType, meal]) => {
-                if (meal && meal.name) {
-                    recipesHtml += `<h4>${meal.name} (${mealTypeLabels[mealType] || mealType}) - ${meal.calories} kcal</h4>`;
-                    if(meal.ingredients && meal.ingredients.length > 0) {
-                        recipesHtml += '<ul>' + meal.ingredients.map(ing => `<li>${ing.quantity} ${ing.item}</li>`).join('') + '</ul>';
-                    }
-                    if(meal.preparation) {
-                         recipesHtml += `<p>${meal.preparation.replace(/\n/g, '<br>')}</p>`;
-                    }
-                }
-            });
-            recipesHtml += `</div>`;
-        });
-
-        printContentDiv.innerHTML = `<h1>${lang.printMenuTitle}</h1>${planTableHtml}${shoppingListHtml}${recipesHtml}`;
-        window.print();
-    }
-    
-    // --- SÉQUENCE D'INITIALISATION ---
-    // Cette fonction principale organise le démarrage de l'application.
-    async function main() {
-        console.log("Démarrage de l'application Equilibre...");
-        
-        // 1. Charger les données nutritionnelles essentielles.
-        await loadCiqualData();
-
-        // 2. Attacher tous les écouteurs d'événements.
-        langSwitcher.addEventListener('change', (e) => setLanguage(e.target.value));
-        suggestIngredientsBtn.addEventListener('click', () => {
-            ingredientsInput.value = translations[currentLang].suggestedIngredientsList;
-        });
-        tdeeForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            calculateNeeds();
-        });
-        calorieRestrictionSelect.addEventListener('change', updateCalorieTargetAndChart);
-        generateMenuBtn.addEventListener('click', handleMenuGeneration);
-        printBtn.addEventListener('click', handlePrint);
-        
-        console.log("Écouteurs d'événements attachés.");
-
-        // 3. Définir la langue initiale de l'interface utilisateur.
-        const savedLang = localStorage.getItem('userLanguage');
-        const browserLang = navigator.language.split('-')[0];
-        const initialLang = savedLang || (translations[browserLang] ? browserLang : 'fr');
-        setLanguage(initialLang);
-        
-        console.log(`Langue définie sur : ${currentLang}. Application prête.`);
-    }
-
-    // Lancer l'application
-    main();
-});
+        i
