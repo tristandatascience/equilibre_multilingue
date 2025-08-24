@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // --- CONFIGURATION ---
-    const NETLIFY_FUNCTION_PATH = '/.netlify/functions/call-groq2';
+    const NETLIFY_FUNCTION_PATH = '/.netlify/functions/call-groq3';
 
     // --- TRANSLATION OBJECT ---
     const translations = {
